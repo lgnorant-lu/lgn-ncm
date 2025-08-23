@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lgn-ncm"
+version = "0.1.0"
+description = "lgn-ncm: Netease NCM to playable audio decryptor (Python CLI)"
+authors = [
+  { name = "lgnorant-lu", email = "lgnorantlu@gmail.com" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+  "pycryptodome>=3.20",
+]
+readme = "README.md"
+
+[project.urls]
+Homepage = "https://github.com/lgnorant-lu/lgn-ncm"
+Repository = "https://github.com/lgnorant-lu/lgn-ncm"
+
+[project.optional-dependencies]
+metadata = ["mutagen>=1.47"]
+
+[project.scripts]
+ncm-decrypt = "ncmdc.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ncmdc"]
+
+

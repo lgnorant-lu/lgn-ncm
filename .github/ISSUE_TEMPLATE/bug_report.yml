@@ -1,0 +1,24 @@
+name: Bug Report
+description: 报告一个问题/异常
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么？
+      description: 描述问题、期望结果与实际结果
+      placeholder: 复现步骤、日志、截图等
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本信息
+      description: 提供 ncm-decrypt 版本与 Python/OS 版本
+      placeholder: e.g. lgn-ncm 0.1.0, Python 3.11, Windows 11
+  - type: textarea
+    id: cmd
+    attributes:
+      label: 命令与参数
+      placeholder: e.g. ncm-decrypt -i ... -o ... --write-meta --export-lyrics
+
