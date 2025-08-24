@@ -16,14 +16,14 @@
 py -m ncmdc.cli -h
 ```
 
-可选：本地安装（注册为 `ncm-decrypt` 命令）
+可选：本地安装（注册为 `ming-ncm` 命令，兼容 `ncm-decrypt`）
 
 ```bash
 pip install .
 # 或安装可选 metadata 支持（写入标签/封面/歌词）
 pip install .[metadata]
 # 之后可直接运行：
-ncm-decrypt -h
+ming-ncm -h
 ```
 
 ## 快速上手（最小示例）
@@ -85,18 +85,18 @@ py -m ncmdc.cli -i "D:\CloudMusic\VipSongsDownload" -o "D:\out" --overwrite
 
 ```
 ./
-  pyproject.toml           # 打包配置，注册 console_scripts 入口
-  README.md                # 中文说明（本文件）
-  Structure.md             # 项目结构文档（中文）
-  Design.md                # 设计与算法说明（中文）
-  Thread.md                # 任务进程记录（中文）
-  Log.md                   # 变更日志索引（中文）
-  Issues.md                # 已知问题与后续待办（中文）
-  Diagram.md               # 图表索引（中文）
+  pyproject.toml           # 打包配置，注册 console_scripts 入口（ming-ncm / ncm-decrypt）
+  README.md                # 说明（本文件）
+  Structure.md             # 项目结构文档
+  Design.md                # 设计与算法说明
+  Thread.md                # 任务进程记录
+  Log.md                   # 变更日志索引
+  Issues.md                # 已知问题与后续待办
+  Diagram.md               # 图表索引
   reference_go/            # Go 参考源码（已隔离）
   ncmdc/
     __init__.py
-    cli.py                 # CLI 入口
+    cli.py                 # CLI 入口（ming-ncm）
     crypto/
       aes.py               # AES-128-ECB + PKCS7 去填充
     ncm/
@@ -104,6 +104,12 @@ py -m ncmdc.cli -i "D:\CloudMusic\VipSongsDownload" -o "D:\out" --overwrite
       parser.py            # NCM 文件解析（魔数、key/meta/cover、音频偏移）
     sniff/
       audio.py             # 音频头嗅探（确定扩展名）
+      image.py             # 图片嗅探（封面判型）
+    meta/
+      writer.py            # 元数据/封面/歌词写入（mutagen 可选）
+    providers/
+      local_lyric.py       # 本地缓存歌词（song_id）
+      netease.py           # 在线歌词（按 song_id 获取/合并）
   tests/
     test_*.py              # 单元测试
 ```

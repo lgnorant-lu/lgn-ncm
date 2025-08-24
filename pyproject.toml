@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lgn-ncm"
-version = "0.1.0"
+version = "0.1.1"
 description = "lgn-ncm: Netease NCM to playable audio decryptor (Python CLI)"
 authors = [
   { name = "lgnorant-lu", email = "lgnorantlu@gmail.com" }
@@ -24,6 +24,8 @@ Repository = "https://github.com/lgnorant-lu/lgn-ncm"
 metadata = ["mutagen>=1.47"]
 
 [project.scripts]
+ming-ncm = "ncmdc.cli:main"
+# 兼容旧命令（后续版本可考虑移除）
 ncm-decrypt = "ncmdc.cli:main"
 
 [tool.hatch.build.targets.wheel]

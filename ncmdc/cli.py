@@ -76,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
 
     parser = argparse.ArgumentParser(
-        prog="ncm-decrypt",
+        prog="ming-ncm",
         description="Decrypt NCM to playable audio（NCM 解密为可播放音频，no re-encode）",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
