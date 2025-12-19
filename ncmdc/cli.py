@@ -201,67 +201,93 @@ def main(argv: list[str] | None = None) -> int:
                             _json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8"
                         )
 
-            # optional: write back metadata / embed cover / lyrics
+            # Prepare lyrics (fetch/load if needed)
+            lyrics_text = None
+            
+            # 1. Load Local
+            local_text = None
+            if args.lyrics:
+                lyr_path = Path(args.lyrics)
+                if lyr_path.is_dir():
+                    cand = lyr_path / (file_path.stem + ".lrc")
+                    if cand.exists():
+                        local_text = cand.read_text(encoding="utf-8", errors="ignore")
+                elif lyr_path.is_file():
+                    local_text = lyr_path.read_text(encoding="utf-8", errors="ignore")
+            else:
+                cand = out_file.with_suffix(".lrc")
+                if cand.exists():
+                    local_text = cand.read_text(encoding="utf-8", errors="ignore")
+
+            # 2. Load Cache
+            cache_text = None
+            # Meta might be needed for cache search
+            # We need to peek meta if not already loaded (dec was closed above)
+            # But wait, we can't get meta efficiently without reading the file.
+            # In the original code, `dec` was opened inside `write_meta`.
+            # We should open file once for both ops if possible, or re-open.
+            
+            # To avoid complex refactoring, let's open file slightly earlier if we need lyrics
+            should_fetch_lyrics = args.lyrics or args.fetch_lyrics or args.export_lyrics or args.write_meta
+            
+            meta = None
+            cover = None
+            
+            if should_fetch_lyrics or args.write_meta:
+                with file_path.open("rb") as fp:
+                    dec = NcmDecoder(fp, logger=logger)
+                    dec.validate()
+                    meta = dec.get_audio_meta()
+                    if args.write_meta and args.embed_cover:
+                        cover = dec.get_cover_image()
+
+                    # Cache Search
+                    if meta and meta.get("song_id"):
+                        search_dirs = [args.lyric_cache_dir] if args.lyric_cache_dir else detect_default_dirs()
+                        try:
+                            cache_text = fetch_local_lyrics(int(meta["song_id"]), search_dirs)
+                        except Exception:
+                            logger.warning("本地缓存歌词读取失败，已跳过", exc_info=True)
+
+                    # Remote Fetch
+                    remote_text = None
+                    if args.fetch_lyrics and meta and meta.get("song_id"):
+                        try:
+                            fetched = fetch_lyrics_by_song_id(int(meta["song_id"]), cookie=args.cookie)
+                            remote_text = merge_lyrics(fetched.get("lrc"), fetched.get("tlyric"))
+                        except Exception:
+                            logger.warning("在线歌词获取失败，已跳过", exc_info=True)
+
+                    if args.lyrics_fallback == "local":
+                        lyrics_text = local_text or cache_text
+                    elif args.lyrics_fallback == "remote":
+                        lyrics_text = remote_text or local_text or cache_text
+                    else:  # both
+                        lyrics_text = local_text or remote_text or cache_text
+
+            # Action: Export Lyrics (.lrc)
+            if args.export_lyrics and lyrics_text:
+                lrc_path = out_file.with_suffix(".lrc")
+                try:
+                    lrc_path.write_text(lyrics_text, encoding="utf-8")
+                    logger.info("exported lyrics", extra={"source": "memory", "destination": str(lrc_path)})
+                except Exception:
+                    logger.warning("写入旁车歌词失败，已跳过", exc_info=True)
+
+            # Action: Write Metadata (Tags)
             if args.write_meta:
                 try:
-                    with file_path.open("rb") as fp:
-                        dec = NcmDecoder(fp, logger=logger)
-                        dec.validate()
-                        meta = dec.get_audio_meta()
-                        cover = dec.get_cover_image() if args.embed_cover else None
-                        # 歌词加载（本地/在线，受 --lyrics-fallback 控制）
-                        lyrics_text = None
-                        out_file = (dst_root / (file_path.stem + dec.sniff_audio_ext()))
-                        local_text = None
-                        if args.lyrics:
-                            lyr_path = Path(args.lyrics)
-                            if lyr_path.is_dir():
-                                cand = lyr_path / (file_path.stem + ".lrc")
-                                if cand.exists():
-                                    local_text = cand.read_text(encoding="utf-8", errors="ignore")
-                            elif lyr_path.is_file():
-                                local_text = lyr_path.read_text(encoding="utf-8", errors="ignore")
-                        else:
-                            cand = out_file.with_suffix(".lrc")
-                            if cand.exists():
-                                local_text = cand.read_text(encoding="utf-8", errors="ignore")
-
-                        # 本地网易云歌词缓存查找（按 song_id）
-                        cache_text = None
-                        if meta and meta.get("song_id"):
-                            search_dirs = [args.lyric_cache_dir] if args.lyric_cache_dir else detect_default_dirs()
-                            try:
-                                cache_text = fetch_local_lyrics(int(meta["song_id"]), search_dirs)
-                            except Exception:
-                                logger.warning("本地缓存歌词读取失败，已跳过", exc_info=True)
-
-                        remote_text = None
-                        if args.fetch_lyrics and meta and meta.get("song_id"):
-                            try:
-                                fetched = fetch_lyrics_by_song_id(int(meta["song_id"]), cookie=args.cookie)
-                                remote_text = merge_lyrics(fetched.get("lrc"), fetched.get("tlyric"))
-                            except Exception:
-                                logger.warning("在线歌词获取失败，已跳过", exc_info=True)
-
-                        if args.lyrics_fallback == "local":
-                            lyrics_text = local_text or cache_text
-                        elif args.lyrics_fallback == "remote":
-                            lyrics_text = remote_text or local_text or cache_text
-                        else:  # both
-                            lyrics_text = remote_text or local_text or cache_text
-                        write_metadata(str(out_file), meta, cover, lyrics_text, logger)
-
-                        # 可选旁车导出 LRC
-                        if args.export_lyrics and lyrics_text:
-                            try:
-                                (dst_root).mkdir(parents=True, exist_ok=True)
-                                lrc_path = (dst_root / (file_path.stem + ".lrc"))
-                                lrc_path.write_text(lyrics_text, encoding="utf-8")
-                                logger.info("exported lyrics", extra={"destination": str(lrc_path)})
-                            except Exception:
-                                logger.warning("写入旁车歌词失败，已跳过", exc_info=True)
+                    # Note: 'meta', 'cover', 'lyrics_text' allow reuse from above
+                    # But 'out_file' relies on extension which might have been computed earlier.
+                    # Actually earlier code computed out_file = ...
+                    
+                    # Check existance of out_file (it was processed in try block above)
+                    if not out_file.exists():
+                        logger.warning("输出文件不存在，跳过元数据写入: %s", out_file)
+                    else:
+                         write_metadata(out_file, meta, cover, lyrics_text)
                 except Exception:
-                    logger.warning("写入元数据/封面/歌词失败，已跳过", exc_info=True)
+                     logger.warning("元数据写入失败", exc_info=True)
         except NcmMagicHeaderError:
             # If suffix matched but header not match, treat as skip.
             logger.warning("file suffix is .ncm but magic header mismatch, skip: %s", str(file_path))
